@@ -7,15 +7,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
-    IntegerType builder;
+    IntegerType parser;
 
-    BasicCalculator(IntegerType builder) { this.builder = builder; }
+    BasicCalculator(IntegerType parser) { this.parser = parser; }
 
-    static class PositionerFormatException extends IllegalArgumentException {
-        public PositionerFormatException(String s) { super(s); }
+    static class ExpressionFormatException extends IllegalArgumentException {
+        public ExpressionFormatException(String s) { super(s); }
     }
 
-    public ExpressionElement PositionerFabric(String expression) {
+    public ExpressionElement ExpressionElementFabric(String expression) {
         try {
             switch (expression.charAt(0)) {
                 case '-':
@@ -30,15 +30,15 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
                             throw new NumberFormatException();
                         else
                             expression = expression.substring(1, expression.length() - 1);
-                        return new Operand(builder.from(expression));
+                        return new Operand(parser.from(expression));
                     } else {
                         return new OperatorOpenParenthesis();
                     }
                 default:
-                    return new Operand(builder.from(expression));
+                    return new Operand(parser.from(expression));
             }
         } catch(NumberFormatException exception) {
-            throw new PositionerFormatException("Bad parsing expression");
+            throw new BasicCalculator.BasicCalculator.ExpressionFormatException("Bad parsing expression");
         }
     }
 
@@ -91,7 +91,7 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
             int start = matcher.start();
             int end = matcher.end();
             String part_expression = s.substring(start, end);
-            expression.add(PositionerFabric(part_expression));
+            expression.add(ExpressionElementFabric(part_expression));
         }
         return expression;
     }
