@@ -21,7 +21,17 @@ class EInteger implements Evaluable<EInteger> {
     }
 
     @Override
+    public EInteger multiply(EInteger second) {
+        return new EInteger(this.value * second.value);
+    }
+
+    @Override
     public EInteger negate() {
         return new EInteger(-this.value);
+    }
+
+    @Override
+    public String toString() {
+        return value.toString();
     }
 }

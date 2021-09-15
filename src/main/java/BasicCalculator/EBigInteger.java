@@ -15,8 +15,8 @@ public class EBigInteger implements Evaluable<EBigInteger> {
     }
 
     @Override
-    public EBigInteger negate() {
-        return new EBigInteger(value.negate());
+    public EBigInteger add(EBigInteger second) {
+        return new EBigInteger(value.add(second.value));
     }
 
     @Override
@@ -25,7 +25,17 @@ public class EBigInteger implements Evaluable<EBigInteger> {
     }
 
     @Override
-    public EBigInteger add(EBigInteger second) {
-        return new EBigInteger(value.add(second.value));
+    public EBigInteger negate() {
+        return new EBigInteger(value.negate());
+    }
+
+    @Override
+    public EBigInteger multiply(EBigInteger second) {
+        return new EBigInteger(value.multiply(second.value));
+    }
+
+    @Override
+    public String toString() {
+        return value.toString();
     }
 }
