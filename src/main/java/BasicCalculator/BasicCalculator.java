@@ -71,21 +71,21 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
     abstract class Operator extends ExpressionElement {}
 
     class OperatorOpenParenthesis extends Operator {
-        static String strRepresentation = "(";
+        static char strRepresentation = '(';
         OperatorOpenParenthesis() {}
 
         @Override
         public String toString() {
-            return strRepresentation;
+            return Character.toString(strRepresentation);
         }
     }
     class OperatorCloseParenthesis extends Operator {
-        static String strRepresentation = ")";
+        static char strRepresentation = ')';
         OperatorCloseParenthesis() {}
 
         @Override
         public String toString() {
-            return strRepresentation;
+            return Character.toString(strRepresentation);
         }
     }
 
@@ -95,7 +95,7 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
 
     //TODO: ranks for operators and set down them in generateRPN
     class OperatorPlus extends ArithmeticOperator {
-        static String strRepresentation = "+";
+        static char strRepresentation = '+';
         OperatorPlus() {}
         @Override
         Operand evaluate(Operand pos1, Operand pos2) {
@@ -104,11 +104,11 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
 
         @Override
         public String toString() {
-            return strRepresentation;
+            return Character.toString(strRepresentation);
         }
     }
     class OperatorMinus extends ArithmeticOperator {
-        static String strRepresentation = "-";
+        static char strRepresentation = '-';
         OperatorMinus() {}
         @Override
         Operand evaluate(Operand pos1, Operand pos2) {
@@ -117,11 +117,11 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
 
         @Override
         public String toString() {
-            return strRepresentation;
+            return Character.toString(strRepresentation);
         }
     }
     class OperatorAsterisk extends ArithmeticOperator {
-        static String strRepresentation = "*";
+        static char strRepresentation = '*';
         @Override
         Operand evaluate(Operand pos1, Operand pos2) {
             return new Operand(pos1.value.multiply(pos2.value));
@@ -129,7 +129,7 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
 
         @Override
         public String toString() {
-            return strRepresentation;
+            return Character.toString(strRepresentation);
         }
     }
 
