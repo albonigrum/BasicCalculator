@@ -2,7 +2,7 @@ package BasicCalculator;
 
 class ELong implements Evaluable<ELong> {
     Long value;
-    ELong(Long value) {
+    public ELong(Long value) {
         this.value = value;
     }
     @Override

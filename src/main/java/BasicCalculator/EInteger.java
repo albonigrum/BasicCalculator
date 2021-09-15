@@ -2,7 +2,7 @@ package BasicCalculator;
 
 class EInteger implements Evaluable<EInteger> {
     Integer value;
-    EInteger(Integer value) {
+    public EInteger(Integer value) {
         this.value = value;
     }
     @Override

@@ -5,7 +5,7 @@ import java.math.BigInteger;
 public class EBigInteger implements Evaluable<EBigInteger> {
     BigInteger value;
 
-    EBigInteger(BigInteger value) {
+    public EBigInteger(BigInteger value) {
         this.value = value;
     }
 
