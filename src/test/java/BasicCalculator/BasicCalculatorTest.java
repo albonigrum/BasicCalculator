@@ -80,7 +80,7 @@ class BasicCalculatorTest {
                         "ToMinusOne, 1000000 * (-0.000001), -1"
                 }
         )
-        void calculate(String name, String expression, double answer) {
+        void calculateFractional(String name, String expression, double answer) {
             BasicCalculator<EDouble> calc = new BasicCalculator<EDouble>(new EDouble(0D));
             assertEquals(answer, calc.calculate(expression).value);
         }

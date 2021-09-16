@@ -2,7 +2,7 @@ Name, Expression, Result
 Zero,0,0
 One positive number,423040,423040
 One negative number,-23843204,-23843204
-One negative number with parentheses,(-3982493),-3982493
+One negative number with parentheses,(-3982493 + 2),-3982491
 Simple expression,1 + 2 + 3 - 4 - 5 + 6,3
 Expression with pair parenthesis,1 + 2 + 3 - 4 - (5 + 6),-9
 Expression with two pair parenthesis(inner),1 + 2 + 3 - ((4 - 5) + 6),1

@@ -8,11 +8,15 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
     static final String spaceSymbols = " \t";
     static final String regexSpaceSymbols = "[" + spaceSymbols + "]";
     //operator '-' must be last in string.
-    static final String operators = "()+*/-";
-    static final String regexOperator = "[" + operators + "]";
-    //TODO: rewrite logic for unary operators
-    static final String regexNumber = "\\(-[1-9]\\d*\\)|[1-9]\\d*|\\(-0\\.\\d*[1-9]\\)|0\\.\\d*[1-9]|0";
-    static final String regexToken = regexNumber + '|' + regexOperator;
+    static final String binaryOperators = "()+*/-";
+    static final String unaryOperators = "-";
+    static final String regexBinaryOperator = "[" + binaryOperators + "]";
+    static final String regexUnaryOperators = "[" + unaryOperators + "]";
+    static final String regexNumber =
+                    "[1-9]\\d*" + "|" +
+                    "0\\.\\d*[1-9]" + "|" +
+                    "0";
+    static final String regexToken = regexNumber + '|' + regexBinaryOperator + "|" + regexUnaryOperators;
     static final String regexExpression =
             '(' + regexSpaceSymbols + '*' + '(' + regexToken + ')' + '+' + regexSpaceSymbols + '*' + ')' + '+';
     static final Pattern patternElement = Pattern.compile(regexToken);
@@ -27,11 +31,15 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         public ExpressionFormatException(String s) { super(s); }
     }
 
-    public Token TokenFabric(String s) {
+    public Token TokenFabric(String s, Token last) {
         try {
             switch (s.charAt(0)) {
+                //TODO: rewrite with array operators
                 case '-':
-                    return new OperatorMinus();
+                    if (last == null || last instanceof OperatorOpenParenthesis)
+                        return new OperatorUnaryMinus();
+                    else
+                        return new OperatorMinus();
                 case '+':
                     return new OperatorPlus();
                 case '*':
@@ -41,14 +49,7 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
                 case ')':
                     return new OperatorCloseParenthesis();
                 case '(':
-                    if (s.length() > 1) {
-                        assert s.charAt(s.length() - 1) == ')';
-                        //TODO:rewrite to unary operators
-                        assert s.charAt(1) == '-';
-                        return new Operand(parser.from(s.substring(2, s.length() - 1)).negate());
-                    } else {
-                        return new OperatorOpenParenthesis();
-                    }
+                    return new OperatorOpenParenthesis();
                 default:
                     return new Operand(parser.from(s));
             }
@@ -75,8 +76,9 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
 
     enum OperatorRank {
         PARENTHESES(0),
-        PLUS_MINUS(1),
-        ASTERISK(2);
+        PLUS(1),
+        ASTERISK(2),
+        UNARY_PLUS(3);
 
         final int rank;
 
@@ -120,17 +122,42 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
     }
 
-    abstract class ArithmeticOperator extends Operator {
-        abstract Operand evaluate(Operand pos1, Operand pos2);
+    abstract class ArithmeticOperator extends Operator {}
+
+    abstract class UnaryOperator extends ArithmeticOperator {
+        abstract Operand evaluate(Operand operand);
     }
 
-    class OperatorPlus extends ArithmeticOperator {
+    class OperatorUnaryMinus extends UnaryOperator {
+        static final char strRepresentation = '-';
+        static final OperatorRank operatorRank = OperatorRank.UNARY_PLUS;
+        @Override
+        OperatorRank getRank() {
+            return operatorRank;
+        }
+
+        @Override
+        Operand evaluate(Operand operand) {
+            return new Operand(operand.value.negate());
+        }
+
+        @Override
+        public String toString() {
+            return Character.toString(strRepresentation);
+        }
+    }
+
+    abstract class BinaryOperator extends ArithmeticOperator {
+        abstract Operand evaluate(Operand first, Operand second);
+    }
+
+    class OperatorPlus extends BinaryOperator {
         static char strRepresentation = '+';
-        static OperatorRank operatorRank = OperatorRank.PLUS_MINUS;
+        static OperatorRank operatorRank = OperatorRank.PLUS;
         OperatorPlus() {}
         @Override
-        Operand evaluate(Operand pos1, Operand pos2) {
-            return new Operand(pos1.value.add(pos2.value));
+        Operand evaluate(Operand first, Operand second) {
+            return new Operand(first.value.add(second.value));
         }
 
         @Override
@@ -143,13 +170,13 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
             return operatorRank;
         }
     }
-    class OperatorMinus extends ArithmeticOperator {
+    class OperatorMinus extends BinaryOperator {
         static char strRepresentation = '-';
-        static OperatorRank operatorRank = OperatorRank.PLUS_MINUS;
+        static OperatorRank operatorRank = OperatorRank.PLUS;
         OperatorMinus() {}
         @Override
-        Operand evaluate(Operand pos1, Operand pos2) {
-            return new Operand(pos1.value.subtract(pos2.value));
+        Operand evaluate(Operand first, Operand second) {
+            return new Operand(first.value.subtract(second.value));
         }
 
         @Override
@@ -162,12 +189,12 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
             return operatorRank;
         }
     }
-    class OperatorAsterisk extends ArithmeticOperator {
+    class OperatorAsterisk extends BinaryOperator {
         static char strRepresentation = '*';
         static OperatorRank operatorRank = OperatorRank.ASTERISK;
         @Override
-        Operand evaluate(Operand pos1, Operand pos2) {
-            return new Operand(pos1.value.multiply(pos2.value));
+        Operand evaluate(Operand first, Operand second) {
+            return new Operand(first.value.multiply(second.value));
         }
 
         @Override
@@ -180,12 +207,12 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
             return operatorRank;
         }
     }
-    class OperatorSlash extends ArithmeticOperator {
+    class OperatorSlash extends BinaryOperator {
         static char strRepresentation = '/';
         static OperatorRank operatorRank = OperatorRank.ASTERISK;
         @Override
-        Operand evaluate(Operand pos1, Operand pos2) {
-            return new Operand(pos1.value.divide(pos2.value));
+        Operand evaluate(Operand first, Operand second) {
+            return new Operand(first.value.divide(second.value));
         }
 
         @Override
@@ -206,23 +233,22 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         for (char c : spaceSymbols.toCharArray())
             s = s.replace(Character.toString(c), "");
 
-        //TODO: rewrite with unary operators
-        if (s.charAt(0) == '-')
-            s = '0' + s;
-
         Matcher matcher = patternElement.matcher(s);
         Queue<Token> expression = new ArrayDeque<>();
-        int prev_end = 0;
+        Token last = null;
+        int prevEnd = 0;
         while(matcher.find()) {
             int start = matcher.start();
             int end = matcher.end();
 
-            assert prev_end == start;
+            assert prevEnd == start;
 
-            String part_expression = s.substring(start, end);
-            expression.add(TokenFabric(part_expression));
+            String partExpression = s.substring(start, end);
+            Token temp = TokenFabric(partExpression, last);
+            expression.add(temp);
 
-            prev_end = end;
+            last = temp;
+            prevEnd = end;
         }
         return expression;
     }
@@ -268,10 +294,13 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
             var curElem = rpn.remove();
             if (curElem instanceof Operand) {
                 operands.push((Operand) curElem);
-            } else if (curElem instanceof ArithmeticOperator) {
-                Operand oper2 = operands.pop();
-                Operand oper1 = operands.pop();
-                operands.push(((ArithmeticOperator) curElem).evaluate(oper1, oper2));
+            } else if (curElem instanceof BinaryOperator) {
+                Operand operand2 = operands.pop();
+                Operand operand1 = operands.pop();
+                operands.push(((BinaryOperator) curElem).evaluate(operand1, operand2));
+            } else if (curElem instanceof UnaryOperator) {
+                Operand operand = operands.pop();
+                operands.push(((UnaryOperator) curElem).evaluate(operand));
             } else {
                 assert false;
             }
