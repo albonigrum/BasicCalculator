@@ -24,6 +24,7 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
 
     BasicCalculator(IntegerType parser) { this.parser = parser; }
 
+
     static class ExpressionFormatException extends IllegalArgumentException {
         public ExpressionFormatException(String s) { super(s); }
     }
@@ -35,6 +36,8 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
                     return new OperatorMinus();
                 case '+':
                     return new OperatorPlus();
+                case '*':
+                    return new OperatorAsterisk();
                 case ')':
                     return new OperatorCloseParenthesis();
                 case '(':
@@ -68,24 +71,50 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         }
     }
 
-    abstract class Operator extends ExpressionElement {}
+    enum OperatorRank {
+        RANK0(0),
+        RANK1(1),
+        RANK2(2);
+
+        final int rank;
+
+        OperatorRank(int rank) {
+            this.rank = rank;
+        }
+    }
+
+    abstract class Operator extends ExpressionElement {
+        abstract OperatorRank getRank();
+    }
 
     class OperatorOpenParenthesis extends Operator {
         static char strRepresentation = '(';
+        static OperatorRank operatorRank = OperatorRank.RANK0;
         OperatorOpenParenthesis() {}
 
         @Override
         public String toString() {
             return Character.toString(strRepresentation);
         }
+
+        @Override
+        OperatorRank getRank() {
+            return operatorRank;
+        }
     }
     class OperatorCloseParenthesis extends Operator {
         static char strRepresentation = ')';
+        static OperatorRank operatorRank = OperatorRank.RANK0;
         OperatorCloseParenthesis() {}
 
         @Override
         public String toString() {
             return Character.toString(strRepresentation);
+        }
+
+        @Override
+        OperatorRank getRank() {
+            return operatorRank;
         }
     }
 
@@ -93,9 +122,9 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         abstract Operand evaluate(Operand pos1, Operand pos2);
     }
 
-    //TODO: ranks for operators and set down them in generateRPN
     class OperatorPlus extends ArithmeticOperator {
         static char strRepresentation = '+';
+        static OperatorRank operatorRank = OperatorRank.RANK2;
         OperatorPlus() {}
         @Override
         Operand evaluate(Operand pos1, Operand pos2) {
@@ -106,9 +135,15 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         public String toString() {
             return Character.toString(strRepresentation);
         }
+
+        @Override
+        OperatorRank getRank() {
+            return operatorRank;
+        }
     }
     class OperatorMinus extends ArithmeticOperator {
         static char strRepresentation = '-';
+        static OperatorRank operatorRank = OperatorRank.RANK2;
         OperatorMinus() {}
         @Override
         Operand evaluate(Operand pos1, Operand pos2) {
@@ -119,9 +154,15 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         public String toString() {
             return Character.toString(strRepresentation);
         }
+
+        @Override
+        OperatorRank getRank() {
+            return operatorRank;
+        }
     }
     class OperatorAsterisk extends ArithmeticOperator {
         static char strRepresentation = '*';
+        static OperatorRank operatorRank = OperatorRank.RANK1;
         @Override
         Operand evaluate(Operand pos1, Operand pos2) {
             return new Operand(pos1.value.multiply(pos2.value));
@@ -130,6 +171,11 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         @Override
         public String toString() {
             return Character.toString(strRepresentation);
+        }
+
+        @Override
+        OperatorRank getRank() {
+            return operatorRank;
         }
     }
 
@@ -149,10 +195,14 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         int prev_end = 0;
         while(matcher.find()) {
             int start = matcher.start();
-            assert prev_end == start;
             int end = matcher.end();
+
+            assert prev_end == start;
+
             String part_expression = s.substring(start, end);
             expression.add(ExpressionElementFabric(part_expression));
+
+            prev_end = end;
         }
         return expression;
     }
@@ -161,24 +211,35 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         Queue<ExpressionElement> rpn = new ArrayDeque<>();
         Stack<Operator> operators = new Stack<>();
         while (!expression.isEmpty()) {
-            if (expression.element() instanceof Operand) {
+            var curElem = expression.element();
+            if (curElem instanceof Operand) {
                 rpn.add(expression.remove());
                 if (!operators.empty() && operators.peek() instanceof ArithmeticOperator)
                     rpn.add(operators.pop());
-            } else if (expression.element() instanceof OperatorOpenParenthesis) {
-                operators.push((OperatorOpenParenthesis) expression.remove());
-            } else if (expression.element() instanceof OperatorCloseParenthesis) {
+            } else if (curElem instanceof OperatorOpenParenthesis) {
+                operators.push((Operator) expression.remove());
+            } else if (curElem instanceof OperatorCloseParenthesis) {
                 if (!(operators.peek() instanceof OperatorOpenParenthesis)) {
-                    throw new ExpressionFormatException("Bad expression");
+                    throw new ExpressionFormatException("Bad parentheses sequence");
                 } else {
                     expression.remove();
                     operators.pop();
                     if (!operators.empty() && operators.peek() instanceof ArithmeticOperator)
                         rpn.add(operators.pop());
                 }
-            } else if (expression.element() instanceof ArithmeticOperator) {
-                operators.push((ArithmeticOperator) expression.remove());
+            } else if (curElem instanceof ArithmeticOperator) {
+                Operator curOperator = (Operator) expression.remove();
+                Stack<Operator> temp = new Stack<>();
+
+                while (!operators.empty() && operators.peek().getRank().rank > curOperator.getRank().rank)
+                    temp.push(operators.pop());
+
+                operators.push(curOperator);
+
+                while (!temp.empty())
+                    operators.push(temp.pop());
             } else {
+                assert false;
                 throw new ExpressionFormatException("Bad expression");
             }
         }
