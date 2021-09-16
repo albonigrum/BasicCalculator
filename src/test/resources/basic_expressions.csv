@@ -7,3 +7,7 @@ Simple expression,1 + 2 + 3 - 4 - 5 + 6,3
 Expression with pair parenthesis,1 + 2 + 3 - 4 - (5 + 6),-9
 Expression with two pair parenthesis(inner),1 + 2 + 3 - ((4 - 5) + 6),1
 Expression with two pair parenthesis(outer),1 + (2 + 3) - (4 - 5 + 6),1
+Expression with asterisk,1 + 2 + 3 - 4 - 5 * 6,-28
+Expression with asterisk/pair parenthesis,1 + 2 + 3 * 4 - (5 + 6),4
+Expression with asterisk/two pair parenthesis(inner),1 + 2 + 3 - ((4 - 5) * 6),12
+Expression with asterisk/two pair parenthesis(outer),1 + (2 + 3) - (4 - 5 * 6),32
