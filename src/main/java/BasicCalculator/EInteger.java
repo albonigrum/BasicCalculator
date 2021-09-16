@@ -31,6 +31,11 @@ class EInteger implements Evaluable<EInteger> {
     }
 
     @Override
+    public EInteger divide(EInteger second) {
+        return new EInteger(value / second.value);
+    }
+
+    @Override
     public String toString() {
         return value.toString();
     }

@@ -21,11 +21,16 @@ class ELong implements Evaluable<ELong> {
     }
 
     @Override
+    public ELong negate() {
+        return new ELong(-this.value);
+    }
+
+    @Override
     public ELong multiply(ELong second) { return new ELong(this.value * second.value); }
 
     @Override
-    public ELong negate() {
-        return new ELong(-this.value);
+    public ELong divide(ELong second) {
+        return new ELong(value / second.value);
     }
 
     @Override

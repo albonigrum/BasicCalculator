@@ -35,6 +35,11 @@ public class EBigInteger implements Evaluable<EBigInteger> {
     }
 
     @Override
+    public EBigInteger divide(EBigInteger second) {
+        return new EBigInteger(value.divide(second.value));
+    }
+
+    @Override
     public String toString() {
         return value.toString();
     }

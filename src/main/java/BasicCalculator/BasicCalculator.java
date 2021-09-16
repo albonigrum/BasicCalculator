@@ -1,28 +1,26 @@
 package BasicCalculator;
 
-import java.util.ArrayDeque;
-import java.util.Queue;
-import java.util.Stack;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
+class BasicCalculator <NumberType extends Evaluable<NumberType>> {
     static final String spaceSymbols = " \t";
     static final String regexSpaceSymbols = "[" + spaceSymbols + "]";
     //operator '-' must be last in string.
-    static final String operators = "()+*-";
+    static final String operators = "()+*/-";
     static final String regexOperator = "[" + operators + "]";
     //TODO: rewrite logic for unary operators
-    static final String regexNumber = "\\(-[1-9]\\d*\\)|[1-9]\\d*|0";
+    static final String regexNumber = "\\(-[1-9]\\d*\\)|[1-9]\\d*|\\(-0\\.\\d*[1-9]\\)|0\\.\\d*[1-9]|0";
     static final String regexToken = regexNumber + '|' + regexOperator;
     static final String regexExpression =
             '(' + regexSpaceSymbols + '*' + '(' + regexToken + ')' + '+' + regexSpaceSymbols + '*' + ')' + '+';
     static final Pattern patternElement = Pattern.compile(regexToken);
 
 
-    IntegerType parser;
+    NumberType parser;
 
-    BasicCalculator(IntegerType parser) { this.parser = parser; }
+    BasicCalculator(NumberType parser) { this.parser = parser; }
 
 
     static class ExpressionFormatException extends IllegalArgumentException {
@@ -38,12 +36,16 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
                     return new OperatorPlus();
                 case '*':
                     return new OperatorAsterisk();
+                case '/':
+                    return new OperatorSlash();
                 case ')':
                     return new OperatorCloseParenthesis();
                 case '(':
                     if (s.length() > 1) {
                         assert s.charAt(s.length() - 1) == ')';
-                        return new Operand(parser.from(s.substring(1, s.length() - 1)));
+                        //TODO:rewrite to unary operators
+                        assert s.charAt(1) == '-';
+                        return new Operand(parser.from(s.substring(2, s.length() - 1)).negate());
                     } else {
                         return new OperatorOpenParenthesis();
                     }
@@ -51,7 +53,7 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
                     return new Operand(parser.from(s));
             }
         } catch(NumberFormatException exception) {
-            throw new ExpressionFormatException("Bad parsing expression");
+            throw new ExpressionFormatException("Bad parsing number in expression: " + exception.getMessage());
         }
     }
 
@@ -60,8 +62,8 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
     }
 
     class Operand extends Token {
-        public IntegerType value;
-        protected Operand(IntegerType value) {
+        public NumberType value;
+        protected Operand(NumberType value) {
             this.value = value;
         }
 
@@ -178,6 +180,24 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
             return operatorRank;
         }
     }
+    class OperatorSlash extends ArithmeticOperator {
+        static char strRepresentation = '/';
+        static OperatorRank operatorRank = OperatorRank.ASTERISK;
+        @Override
+        Operand evaluate(Operand pos1, Operand pos2) {
+            return new Operand(pos1.value.divide(pos2.value));
+        }
+
+        @Override
+        public String toString() {
+            return Character.toString(strRepresentation);
+        }
+
+        @Override
+        OperatorRank getRank() {
+            return operatorRank;
+        }
+    }
 
     Queue<Token> generateExpression(String s) {
         if (!Pattern.matches(regexExpression, s))
@@ -186,6 +206,7 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         for (char c : spaceSymbols.toCharArray())
             s = s.replace(Character.toString(c), "");
 
+        //TODO: rewrite with unary operators
         if (s.charAt(0) == '-')
             s = '0' + s;
 
@@ -238,7 +259,7 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
         return rpn;
     }
 
-    IntegerType calculateRPN(Queue<Token> rpn) {
+    NumberType calculateRPN(Queue<Token> rpn) {
         if (rpn.isEmpty())
             return null;
 
@@ -255,13 +276,12 @@ class BasicCalculator <IntegerType extends Evaluable<IntegerType>> {
                 assert false;
             }
         }
-        if (operands.size() != 1) {
-            throw new ExpressionFormatException("Bad RPN expression");
-        }
+        assert operands.size() == 1;
+
         return operands.peek().value;
     }
 
-    public IntegerType calculate(String s) {
+    public NumberType calculate(String s) {
         return calculateRPN(generateRPN(generateExpression(s)));
     }
 }

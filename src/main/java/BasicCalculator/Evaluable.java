@@ -5,5 +5,6 @@ public interface Evaluable<T> {
     T add(T second);
     T subtract(T second);
     T multiply(T second);
+    T divide(T second);
     T negate();
 }
