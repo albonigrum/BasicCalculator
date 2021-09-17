@@ -77,7 +77,8 @@ class BasicCalculatorTest {
                 value = {
                         "ToOne1, 0.001 * 1000, 1",
                         "ToOne2, 0.0000001 * 10000000, 1",
-                        "ToMinusOne, 1000000 * (-0.000001), -1"
+                        "ToMinusOne, 1000000 * (-0.000001), -1",
+                        "ToTen, 10.1 + (-0.1), 10"
                 }
         )
         void calculateFractional(String name, String expression, double answer) {

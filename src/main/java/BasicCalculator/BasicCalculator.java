@@ -12,7 +12,7 @@ record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType pars
     static final String unaryOperators = "-";
     static final String regexBinaryOperator = "[" + binaryOperators + "]";
     static final String regexUnaryOperators = "[" + unaryOperators + "]";
-    static final String regexNumber = "[1-9]\\d*" + "|" + "0\\.\\d*[1-9]" + "|" + "0";
+    static final String regexNumber = "(?:[1-9]\\d*|0)(?:\\.\\d*[1-9])?";
     static final String regexToken = regexNumber + '|' + regexBinaryOperator + "|" + regexUnaryOperators;
     static final String regexExpression =
             '(' + regexSpaceSymbols + '*' + '(' + regexToken + ')' + '+' + regexSpaceSymbols + '*' + ')' + '+';
