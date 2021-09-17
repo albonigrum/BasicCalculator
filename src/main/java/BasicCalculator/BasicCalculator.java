@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-class BasicCalculator <NumberType extends Evaluable<NumberType>> {
+record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType parser) {
     static final String spaceSymbols = " \t";
     static final String regexSpaceSymbols = "[" + spaceSymbols + "]";
     //operator '-' must be last in string.
@@ -12,23 +12,17 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
     static final String unaryOperators = "-";
     static final String regexBinaryOperator = "[" + binaryOperators + "]";
     static final String regexUnaryOperators = "[" + unaryOperators + "]";
-    static final String regexNumber =
-                    "[1-9]\\d*" + "|" +
-                    "0\\.\\d*[1-9]" + "|" +
-                    "0";
+    static final String regexNumber = "[1-9]\\d*" + "|" + "0\\.\\d*[1-9]" + "|" + "0";
     static final String regexToken = regexNumber + '|' + regexBinaryOperator + "|" + regexUnaryOperators;
     static final String regexExpression =
             '(' + regexSpaceSymbols + '*' + '(' + regexToken + ')' + '+' + regexSpaceSymbols + '*' + ')' + '+';
     static final Pattern patternElement = Pattern.compile(regexToken);
 
 
-    NumberType parser;
-
-    BasicCalculator(NumberType parser) { this.parser = parser; }
-
-
     static class ExpressionFormatException extends IllegalArgumentException {
-        public ExpressionFormatException(String s) { super(s); }
+        public ExpressionFormatException(String s) {
+            super(s);
+        }
     }
 
     public Token TokenFabric(String s, Token last) {
@@ -51,9 +45,11 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
                 case '(':
                     return new OperatorOpenParenthesis();
                 default:
-                    return new Operand(parser.from(s));
+                    if ('0' <= s.charAt(0) && s.charAt(0) <= '9')
+                        return new Operand(parser.from(s));
+                    throw new ExpressionFormatException("Invalid expression token");
             }
-        } catch(NumberFormatException exception) {
+        } catch (NumberFormatException exception) {
             throw new ExpressionFormatException("Bad parsing number in expression: " + exception.getMessage());
         }
     }
@@ -64,6 +60,7 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
 
     class Operand extends Token {
         public NumberType value;
+
         protected Operand(NumberType value) {
             this.value = value;
         }
@@ -74,7 +71,7 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
     }
 
-    enum OperatorRank {
+    enum RankOperator {
         PARENTHESES(0),
         PLUS(1),
         ASTERISK(2),
@@ -82,19 +79,18 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
 
         final int rank;
 
-        OperatorRank(int rank) {
+        RankOperator(int rank) {
             this.rank = rank;
         }
     }
 
     abstract class Operator extends Token {
-        abstract OperatorRank getRank();
+        abstract RankOperator getRank();
     }
 
     class OperatorOpenParenthesis extends Operator {
         static char strRepresentation = '(';
-        static OperatorRank operatorRank = OperatorRank.PARENTHESES;
-        OperatorOpenParenthesis() {}
+        static RankOperator rankOperator = RankOperator.PARENTHESES;
 
         @Override
         public String toString() {
@@ -102,14 +98,14 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
 
         @Override
-        OperatorRank getRank() {
-            return operatorRank;
+        RankOperator getRank() {
+            return rankOperator;
         }
     }
+
     class OperatorCloseParenthesis extends Operator {
         static char strRepresentation = ')';
-        static OperatorRank operatorRank = OperatorRank.PARENTHESES;
-        OperatorCloseParenthesis() {}
+        static RankOperator rankOperator = RankOperator.PARENTHESES;
 
         @Override
         public String toString() {
@@ -117,8 +113,8 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
 
         @Override
-        OperatorRank getRank() {
-            return operatorRank;
+        RankOperator getRank() {
+            return rankOperator;
         }
     }
 
@@ -130,10 +126,11 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
 
     class OperatorUnaryMinus extends UnaryOperator {
         static final char strRepresentation = '-';
-        static final OperatorRank operatorRank = OperatorRank.UNARY_PLUS;
+        static final RankOperator rankOperator = RankOperator.UNARY_PLUS;
+
         @Override
-        OperatorRank getRank() {
-            return operatorRank;
+        RankOperator getRank() {
+            return rankOperator;
         }
 
         @Override
@@ -153,8 +150,8 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
 
     class OperatorPlus extends BinaryOperator {
         static char strRepresentation = '+';
-        static OperatorRank operatorRank = OperatorRank.PLUS;
-        OperatorPlus() {}
+        static RankOperator rankOperator = RankOperator.PLUS;
+
         @Override
         Operand evaluate(Operand first, Operand second) {
             return new Operand(first.value.add(second.value));
@@ -166,14 +163,15 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
 
         @Override
-        OperatorRank getRank() {
-            return operatorRank;
+        RankOperator getRank() {
+            return rankOperator;
         }
     }
+
     class OperatorMinus extends BinaryOperator {
         static char strRepresentation = '-';
-        static OperatorRank operatorRank = OperatorRank.PLUS;
-        OperatorMinus() {}
+        static RankOperator rankOperator = RankOperator.PLUS;
+
         @Override
         Operand evaluate(Operand first, Operand second) {
             return new Operand(first.value.subtract(second.value));
@@ -185,13 +183,15 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
 
         @Override
-        OperatorRank getRank() {
-            return operatorRank;
+        RankOperator getRank() {
+            return rankOperator;
         }
     }
+
     class OperatorAsterisk extends BinaryOperator {
         static char strRepresentation = '*';
-        static OperatorRank operatorRank = OperatorRank.ASTERISK;
+        static RankOperator rankOperator = RankOperator.ASTERISK;
+
         @Override
         Operand evaluate(Operand first, Operand second) {
             return new Operand(first.value.multiply(second.value));
@@ -203,13 +203,15 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
 
         @Override
-        OperatorRank getRank() {
-            return operatorRank;
+        RankOperator getRank() {
+            return rankOperator;
         }
     }
+
     class OperatorSlash extends BinaryOperator {
         static char strRepresentation = '/';
-        static OperatorRank operatorRank = OperatorRank.ASTERISK;
+        static RankOperator rankOperator = RankOperator.ASTERISK;
+
         @Override
         Operand evaluate(Operand first, Operand second) {
             return new Operand(first.value.divide(second.value));
@@ -221,8 +223,8 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         }
 
         @Override
-        OperatorRank getRank() {
-            return operatorRank;
+        RankOperator getRank() {
+            return rankOperator;
         }
     }
 
@@ -237,14 +239,13 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
         Queue<Token> expression = new ArrayDeque<>();
         Token last = null;
         int prevEnd = 0;
-        while(matcher.find()) {
+        while (matcher.find()) {
             int start = matcher.start();
             int end = matcher.end();
 
             assert prevEnd == start;
 
-            String partExpression = s.substring(start, end);
-            Token temp = TokenFabric(partExpression, last);
+            Token temp = TokenFabric(s.substring(start, end), last);
             expression.add(temp);
 
             last = temp;
@@ -266,7 +267,7 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
                 while (!operators.empty() && !(operators.peek() instanceof OperatorOpenParenthesis))
                     rpn.add(operators.pop());
                 if (operators.empty())
-                    throw new ExpressionFormatException("Bad parentheses");
+                    throw new ExpressionFormatException("Invalid parentheses sequence");
                 operators.pop();
             } else if (curElem instanceof ArithmeticOperator) {
                 Operator curOperator = (Operator) curElem;
@@ -274,38 +275,46 @@ class BasicCalculator <NumberType extends Evaluable<NumberType>> {
                     rpn.add(operators.pop());
                 operators.push(curOperator);
             } else {
-                assert false;
+                throw new ExpressionFormatException("Invalid token: " + curElem.toString());
             }
         }
         while (!operators.empty()) {
             if (operators.peek() instanceof OperatorOpenParenthesis)
-                throw new ExpressionFormatException("Bad parentheses");
+                throw new ExpressionFormatException("Invalid parentheses sequence");
             rpn.add(operators.pop());
         }
         return rpn;
     }
 
     NumberType calculateRPN(Queue<Token> rpn) {
-        if (rpn.isEmpty())
-            return null;
-
         Stack<Operand> operands = new Stack<>();
         while (!rpn.isEmpty()) {
             var curElem = rpn.remove();
             if (curElem instanceof Operand) {
                 operands.push((Operand) curElem);
             } else if (curElem instanceof BinaryOperator) {
-                Operand operand2 = operands.pop();
-                Operand operand1 = operands.pop();
+                Operand operand1, operand2;
+                try {
+                    operand2 = operands.pop();
+                    operand1 = operands.pop();
+                } catch (EmptyStackException exception) {
+                    throw new ExpressionFormatException("Invalid RPN");
+                }
                 operands.push(((BinaryOperator) curElem).evaluate(operand1, operand2));
             } else if (curElem instanceof UnaryOperator) {
-                Operand operand = operands.pop();
+                Operand operand;
+                try {
+                    operand = operands.pop();
+                } catch (EmptyStackException exception) {
+                    throw new ExpressionFormatException("Invalid RPN");
+                }
                 operands.push(((UnaryOperator) curElem).evaluate(operand));
             } else {
                 assert false;
             }
         }
-        assert operands.size() == 1;
+        if (operands.size() != 1)
+            throw new ExpressionFormatException("Invalid RPN");
 
         return operands.peek().value;
     }
