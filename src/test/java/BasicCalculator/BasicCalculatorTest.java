@@ -25,6 +25,14 @@ class BasicCalculatorTest {
             BasicCalculator calc = new BasicCalculator();
             assertEquals(answer, calc.calculateInt(expression));
         }
+
+        @Test
+        void notCalculateFractional() {
+            String s = "1000.1000";
+            BasicCalculator calc = new BasicCalculator();
+            assertThrows(BasicCalculator.ExpressionFormatException.class, () -> calc.calculateInt(s));
+        }
+
     }
 
     @Nested

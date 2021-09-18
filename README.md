@@ -1,16 +1,15 @@
 # BasicCalculator
-BasicCalulator have one method:
+BasicCalulator have two methods:
 ```Java
-NumberType calculate(String expression); 
+long calculateInt(String expression);
+double calculateFloat(String expression);
 ```
-
-BasicCalculator can work with different types (```T```) but they must implements ```Evaluable<T>```.
 
 Now BasicCalculator can calculate expressions with:
 
 * \+
-* \- (unary minus can be in parenthesis or in begging of expression)
+* \- (unary minus can be in parentheses or in beginning of expression)
 * \*
 * /
 * ()
-* and numbers in 10-radix(fractional and integer)
+* and numbers in 10-radix(integer, fractional available only in calculateFloat)

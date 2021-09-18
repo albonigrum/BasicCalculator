@@ -404,12 +404,12 @@ class BasicCalculator {
         return calculateRPN(generateRPN(generateExpression(s)));
     }
 
-    public Double calculateFloat(String s) {
+    public double calculateFloat(String s) {
         INTEGER_MODE_FLAG = false;
         return calculateValue(s).fValue;
     }
 
-    public Long calculateInt(String s) {
+    public long calculateInt(String s) {
         INTEGER_MODE_FLAG = true;
         return calculateValue(s).iValue;
     }
