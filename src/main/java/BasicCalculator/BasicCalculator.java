@@ -1,16 +1,19 @@
 package BasicCalculator;
 
-import java.util.EmptyStackException;
-import java.util.Queue;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.ArrayDeque;
+import java.util.EmptyStackException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Queue;
 import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType parser) {
+class BasicCalculator {
     static final String spaceSymbols = " \t";
     static final String regexSpaceSymbols = "[" + spaceSymbols + "]";
-    //operator '-' must be last in string.
     static final String binaryOperators = "()+*/-";
     static final String unaryOperators = "-";
     static final String regexBinaryOperator = "[" + binaryOperators + "]";
@@ -20,7 +23,50 @@ record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType pars
     static final String regexExpression =
             '(' + regexSpaceSymbols + '*' + '(' + regexToken + ')' + '+' + regexSpaceSymbols + '*' + ')' + '+';
     static final Pattern patternElement = Pattern.compile(regexToken);
+    static final Map<String, Operator> mapUnaryOperators = new HashMap<>();
+    static final Map<String, Operator> mapBinaryOperators = new HashMap<>();
+    static final Map<String, Operator> mapOperatorsParentheses = new HashMap<>();
 
+    static {
+        try {
+            mapUnaryOperators.put("-",
+                    new UnaryOperator(
+                            RankOperator.UNARY_PLUS,
+                            "-",
+                            Operand.class.getDeclaredMethod("negate"))
+            );
+            mapBinaryOperators.put("-",
+                    new BinaryOperator(
+                            RankOperator.PLUS,
+                            "-",
+                            Operand.class.getDeclaredMethod("subtract", Operand.class))
+            );
+            mapBinaryOperators.put("+",
+                    new BinaryOperator(
+                            RankOperator.PLUS,
+                            "+",
+                            Operand.class.getDeclaredMethod("add", Operand.class))
+            );
+            mapBinaryOperators.put("*",
+                    new BinaryOperator(
+                            RankOperator.ASTERISK,
+                            "*",
+                            Operand.class.getDeclaredMethod("multiply", Operand.class))
+            );
+            mapBinaryOperators.put("/",
+                    new BinaryOperator(
+                            RankOperator.ASTERISK,
+                            "/",
+                            Operand.class.getDeclaredMethod("divide", Operand.class))
+            );
+            mapOperatorsParentheses.put("(", new OperatorParenthesis("(", true));
+            mapOperatorsParentheses.put(")", new OperatorParenthesis(")", false));
+        } catch (NoSuchMethodException e) {
+            throw new ReflectAPIUsingException("No found method. Method: " + e);
+        }
+    }
+
+    boolean INTEGER_MODE_FLAG;
 
     static class ExpressionFormatException extends IllegalArgumentException {
         public ExpressionFormatException(String s) {
@@ -28,49 +74,152 @@ record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType pars
         }
     }
 
+    static class ReflectAPIUsingException extends RuntimeException {
+        public ReflectAPIUsingException(String s) {
+            super(s);
+        }
+    }
+
     public Token TokenFabric(String s, Token last) {
         try {
-            switch (s.charAt(0)) {
-                //TODO: rewrite with array operators
-                case '-':
-                    if (last == null || last instanceof OperatorOpenParenthesis)
-                        return new OperatorUnaryMinus();
-                    else
-                        return new OperatorMinus();
-                case '+':
-                    return new OperatorPlus();
-                case '*':
-                    return new OperatorAsterisk();
-                case '/':
-                    return new OperatorSlash();
-                case ')':
-                    return new OperatorCloseParenthesis();
-                case '(':
-                    return new OperatorOpenParenthesis();
-                default:
-                    if ('0' <= s.charAt(0) && s.charAt(0) <= '9')
-                        return new Operand(parser.from(s));
-                    throw new ExpressionFormatException("Invalid expression token");
+            boolean isParenthesis = mapOperatorsParentheses.containsKey(s);
+            boolean isUnary = mapUnaryOperators.containsKey(s);
+            boolean isBinary = mapBinaryOperators.containsKey(s);
+            if (isParenthesis)
+                return mapOperatorsParentheses.get(s);
+            if (isBinary && !isUnary)
+                return mapBinaryOperators.get(s);
+            if (isUnary && !isBinary)
+                return mapUnaryOperators.get(s);
+            if (isUnary && isBinary){
+                if (last != null && !(last instanceof OperatorParenthesis && ((OperatorParenthesis) last).isOpen))
+                    return mapBinaryOperators.get(s);
+                else
+                    return mapUnaryOperators.get(s);
             }
+            if ('0' <= s.charAt(0) && s.charAt(0) <= '9')
+                return new Operand(s, INTEGER_MODE_FLAG);
+            throw new ExpressionFormatException("Invalid expression token");
         } catch (NumberFormatException exception) {
             throw new ExpressionFormatException("Bad parsing number in expression: " + exception.getMessage());
         }
     }
 
-    abstract class Token {
+    static abstract class Token {
         public abstract String toString();
     }
 
-    class Operand extends Token {
-        public NumberType value;
+    private static class Value {
+        public final boolean isInteger;
+        public final Double fValue;
+        public final Long iValue;
 
-        protected Operand(NumberType value) {
-            this.value = value;
+        private Value(Double fValue, Long iValue) {
+            if (iValue == null && fValue == null)
+                throw new IllegalArgumentException("Value cannot be null");
+            assert iValue == null || fValue == null;
+
+            isInteger = iValue != null;
+
+            this.fValue = fValue;
+            this.iValue = iValue;
+        }
+
+        public Value(Long iValue) {
+            this(null, iValue);
+        }
+        public Value(Double fValue) {
+            this(fValue, null);
+        }
+
+        public Value(String s, boolean isInteger) {
+            this((!isInteger ? Double.parseDouble(s) : null), (isInteger ? Long.parseLong(s) : null));
+        }
+
+        private void isSameType(Value value) {
+            if (isInteger != value.isInteger)
+                throw new IllegalArgumentException(this + " not same type with " + value);
+        }
+
+        Value add(Value value) {
+            isSameType(value);
+            if (isInteger)
+                return new Value(iValue + value.iValue);
+            else
+                return new Value(fValue + value.fValue);
+        }
+
+        Value subtract(Value value) {
+            isSameType(value);
+            if (isInteger)
+                return new Value(iValue - value.iValue);
+            else
+                return new Value(fValue - value.fValue);
+        }
+
+        Value multiply(Value value) {
+            isSameType(value);
+            if (isInteger)
+                return new Value(iValue * value.iValue);
+            else
+                return new Value(fValue * value.fValue);
+        }
+
+        Value divide(Value value) {
+            isSameType(value);
+            if (isInteger)
+                return new Value(iValue / value.iValue);
+            else
+                return new Value(fValue / value.fValue);
+        }
+
+        Value negate() {
+            if (isInteger)
+                return new Value(-iValue);
+            else
+                return new Value(-fValue);
         }
 
         @Override
         public String toString() {
-            return (value == null ? null : value.toString());
+            return (isInteger ? iValue.toString() : fValue.toString());
+        }
+    }
+
+    static class Operand extends Token {
+        public Value value;
+
+        Operand(Value value) {
+            this.value = value;
+        }
+
+        Operand(String s, boolean isInteger) {
+            value = new Value(s, isInteger);
+        }
+
+        Operand add(Operand operand) {
+            return new Operand(value.add(operand.value));
+        }
+
+        Operand subtract(Operand operand) {
+            return new Operand(value.subtract(operand.value));
+        }
+
+        Operand multiply(Operand operand) {
+            return new Operand(value.multiply(operand.value));
+        }
+
+        Operand divide(Operand operand) {
+            return new Operand(value.divide(operand.value));
+        }
+
+        Operand negate() {
+            return new Operand(value.negate());
+        }
+
+        @Override
+        public String toString() {
+            return value.toString();
         }
     }
 
@@ -87,149 +236,69 @@ record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType pars
         }
     }
 
-    abstract class Operator extends Token {
-        abstract RankOperator getRank();
-    }
+    static abstract class Operator extends Token {
+        final RankOperator rankOperator;
+        final String strRepresentation;
 
-    class OperatorOpenParenthesis extends Operator {
-        static char strRepresentation = '(';
-        static RankOperator rankOperator = RankOperator.PARENTHESES;
+        Operator(RankOperator rankOperator, String strRepresentation) {
+            this.rankOperator = rankOperator;
+            this.strRepresentation = strRepresentation;
+        }
 
-        @Override
+        RankOperator getRank() {
+            return rankOperator;
+        }
         public String toString() {
-            return Character.toString(strRepresentation);
-        }
-
-        @Override
-        RankOperator getRank() {
-            return rankOperator;
+            return strRepresentation;
         }
     }
 
-    class OperatorCloseParenthesis extends Operator {
-        static char strRepresentation = ')';
-        static RankOperator rankOperator = RankOperator.PARENTHESES;
-
-        @Override
-        public String toString() {
-            return Character.toString(strRepresentation);
-        }
-
-        @Override
-        RankOperator getRank() {
-            return rankOperator;
+    static class OperatorParenthesis extends Operator {
+        final boolean isOpen;
+        OperatorParenthesis(String strRepresentation, boolean isOpen) {
+            super(RankOperator.PARENTHESES, strRepresentation);
+            this.isOpen = isOpen;
         }
     }
 
-    abstract class ArithmeticOperator extends Operator {}
+    static abstract class ArithmeticOperator extends Operator {
+        final Method evaluateMethod;
 
-    abstract class UnaryOperator extends ArithmeticOperator {
-        abstract Operand evaluate(Operand operand);
+        ArithmeticOperator(RankOperator rankOperator, String strRepresentation, Method evaluateMethod) {
+            super(rankOperator, strRepresentation);
+            this.evaluateMethod = evaluateMethod;
+        }
     }
 
-    class OperatorUnaryMinus extends UnaryOperator {
-        static final char strRepresentation = '-';
-        static final RankOperator rankOperator = RankOperator.UNARY_PLUS;
-
-        @Override
-        RankOperator getRank() {
-            return rankOperator;
+    static class UnaryOperator extends ArithmeticOperator {
+        UnaryOperator(RankOperator rankOperator, String strRepresentation, Method evaluateMethod) {
+            super(rankOperator, strRepresentation, evaluateMethod);
         }
 
-        @Override
         Operand evaluate(Operand operand) {
-            return new Operand(operand.value.negate());
-        }
-
-        @Override
-        public String toString() {
-            return Character.toString(strRepresentation);
-        }
-    }
-
-    abstract class BinaryOperator extends ArithmeticOperator {
-        abstract Operand evaluate(Operand first, Operand second);
-    }
-
-    class OperatorPlus extends BinaryOperator {
-        static char strRepresentation = '+';
-        static RankOperator rankOperator = RankOperator.PLUS;
-
-        @Override
-        Operand evaluate(Operand first, Operand second) {
-            return new Operand(first.value.add(second.value));
-        }
-
-        @Override
-        public String toString() {
-            return Character.toString(strRepresentation);
-        }
-
-        @Override
-        RankOperator getRank() {
-            return rankOperator;
+            try {
+                return (Operand) evaluateMethod.invoke(operand);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                e.printStackTrace();
+                throw new ReflectAPIUsingException("Bad method invoke. Method: " + evaluateMethod);
+            }
         }
     }
 
-    class OperatorMinus extends BinaryOperator {
-        static char strRepresentation = '-';
-        static RankOperator rankOperator = RankOperator.PLUS;
-
-        @Override
-        Operand evaluate(Operand first, Operand second) {
-            return new Operand(first.value.subtract(second.value));
+    static class BinaryOperator extends ArithmeticOperator {
+        BinaryOperator(RankOperator rankOperator, String strRepresentation, Method evaluateMethod) {
+            super(rankOperator, strRepresentation, evaluateMethod);
         }
-
-        @Override
-        public String toString() {
-            return Character.toString(strRepresentation);
-        }
-
-        @Override
-        RankOperator getRank() {
-            return rankOperator;
+        Operand evaluate(Operand operand1, Operand operand2) {
+            try {
+                return (Operand) evaluateMethod.invoke(operand1, operand2);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                e.printStackTrace();
+                throw new ReflectAPIUsingException("Bad method invoke. Method: " + evaluateMethod);
+            }
         }
     }
 
-    class OperatorAsterisk extends BinaryOperator {
-        static char strRepresentation = '*';
-        static RankOperator rankOperator = RankOperator.ASTERISK;
-
-        @Override
-        Operand evaluate(Operand first, Operand second) {
-            return new Operand(first.value.multiply(second.value));
-        }
-
-        @Override
-        public String toString() {
-            return Character.toString(strRepresentation);
-        }
-
-        @Override
-        RankOperator getRank() {
-            return rankOperator;
-        }
-    }
-
-    class OperatorSlash extends BinaryOperator {
-        static char strRepresentation = '/';
-        static RankOperator rankOperator = RankOperator.ASTERISK;
-
-        @Override
-        Operand evaluate(Operand first, Operand second) {
-            return new Operand(first.value.divide(second.value));
-        }
-
-        @Override
-        public String toString() {
-            return Character.toString(strRepresentation);
-        }
-
-        @Override
-        RankOperator getRank() {
-            return rankOperator;
-        }
-    }
 
     Queue<Token> generateExpression(String s) {
         if (!Pattern.matches(regexExpression, s))
@@ -264,14 +333,23 @@ record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType pars
             var curElem = expression.remove();
             if (curElem instanceof Operand) {
                 rpn.add(curElem);
-            } else if (curElem instanceof OperatorOpenParenthesis) {
-                operators.push((Operator) curElem);
-            } else if (curElem instanceof OperatorCloseParenthesis) {
-                while (!operators.empty() && !(operators.peek() instanceof OperatorOpenParenthesis))
-                    rpn.add(operators.pop());
-                if (operators.empty())
-                    throw new ExpressionFormatException("Invalid parentheses sequence");
-                operators.pop();
+            } else if (curElem instanceof OperatorParenthesis) {
+                if (((OperatorParenthesis) curElem).isOpen) {
+                    operators.push((Operator) curElem);
+                } else {
+                    while (!operators.empty()) {
+                        Operator curOperator = operators.peek();
+                        boolean isCurOperatorOpenParenthesis =
+                                curOperator instanceof OperatorParenthesis && ((OperatorParenthesis) curOperator).isOpen;
+                        assert !(curOperator instanceof OperatorParenthesis && !isCurOperatorOpenParenthesis);
+                        if (isCurOperatorOpenParenthesis)
+                            break;
+                        rpn.add(operators.pop());
+                    }
+                    if (operators.empty())
+                        throw new ExpressionFormatException("Invalid parentheses sequence");
+                    operators.pop();
+                }
             } else if (curElem instanceof ArithmeticOperator) {
                 Operator curOperator = (Operator) curElem;
                 while (!operators.empty() && operators.peek().getRank().rank >= curOperator.getRank().rank)
@@ -282,14 +360,14 @@ record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType pars
             }
         }
         while (!operators.empty()) {
-            if (operators.peek() instanceof OperatorOpenParenthesis)
-                throw new ExpressionFormatException("Invalid parentheses sequence");
+            if (!(operators.peek() instanceof ArithmeticOperator))
+                throw new ExpressionFormatException("Invalid operator " + operators.peek());
             rpn.add(operators.pop());
         }
         return rpn;
     }
 
-    NumberType calculateRPN(Queue<Token> rpn) {
+    Value calculateRPN(Queue<Token> rpn) {
         Stack<Operand> operands = new Stack<>();
         while (!rpn.isEmpty()) {
             var curElem = rpn.remove();
@@ -322,8 +400,18 @@ record BasicCalculator<NumberType extends Evaluable<NumberType>>(NumberType pars
         return operands.peek().value;
     }
 
-    public NumberType calculate(String s) {
+    private Value calculateValue(String s) {
         return calculateRPN(generateRPN(generateExpression(s)));
+    }
+
+    public Double calculateFloat(String s) {
+        INTEGER_MODE_FLAG = false;
+        return calculateValue(s).fValue;
+    }
+
+    public Long calculateInt(String s) {
+        INTEGER_MODE_FLAG = true;
+        return calculateValue(s).iValue;
     }
 }
 
