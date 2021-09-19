@@ -80,7 +80,7 @@ class BasicCalculator {
         }
     }
 
-    public Token TokenFabric(String s, Token last) {
+    Token TokenFabric(String s, Token last) {
         try {
             boolean isParenthesis = mapOperatorsParentheses.containsKey(s);
             boolean isUnary = mapUnaryOperators.containsKey(s);
@@ -109,7 +109,7 @@ class BasicCalculator {
         public abstract String toString();
     }
 
-    private static class Value extends Token {
+    static class Value extends Token {
         public final boolean isInteger;
         public final Double fValue;
         public final Long iValue;
@@ -362,7 +362,7 @@ class BasicCalculator {
         return values.peek();
     }
 
-    private Value calculateValue(String s) {
+    Value calculateValue(String s) {
         return calculateRPN(generateRPN(generateExpression(s)));
     }
 
