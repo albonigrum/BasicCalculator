@@ -33,31 +33,31 @@ class BasicCalculator {
                     new UnaryOperator(
                             RankOperator.UNARY_PLUS,
                             "-",
-                            Operand.class.getDeclaredMethod("negate"))
+                            Value.class.getDeclaredMethod("negate"))
             );
             mapBinaryOperators.put("-",
                     new BinaryOperator(
                             RankOperator.PLUS,
                             "-",
-                            Operand.class.getDeclaredMethod("subtract", Operand.class))
+                            Value.class.getDeclaredMethod("subtract", Value.class))
             );
             mapBinaryOperators.put("+",
                     new BinaryOperator(
                             RankOperator.PLUS,
                             "+",
-                            Operand.class.getDeclaredMethod("add", Operand.class))
+                            Value.class.getDeclaredMethod("add", Value.class))
             );
             mapBinaryOperators.put("*",
                     new BinaryOperator(
                             RankOperator.ASTERISK,
                             "*",
-                            Operand.class.getDeclaredMethod("multiply", Operand.class))
+                            Value.class.getDeclaredMethod("multiply", Value.class))
             );
             mapBinaryOperators.put("/",
                     new BinaryOperator(
                             RankOperator.ASTERISK,
                             "/",
-                            Operand.class.getDeclaredMethod("divide", Operand.class))
+                            Value.class.getDeclaredMethod("divide", Value.class))
             );
             mapOperatorsParentheses.put("(", new OperatorParenthesis("(", true));
             mapOperatorsParentheses.put(")", new OperatorParenthesis(")", false));
@@ -98,7 +98,7 @@ class BasicCalculator {
                     return mapUnaryOperators.get(s);
             }
             if ('0' <= s.charAt(0) && s.charAt(0) <= '9')
-                return new Operand(s, INTEGER_MODE_FLAG);
+                return new Value(s, INTEGER_MODE_FLAG);
             throw new ExpressionFormatException("Invalid expression token");
         } catch (NumberFormatException exception) {
             throw new ExpressionFormatException("Bad parsing number in expression: " + exception.getMessage());
@@ -109,7 +109,7 @@ class BasicCalculator {
         public abstract String toString();
     }
 
-    private static class Value {
+    private static class Value extends Token {
         public final boolean isInteger;
         public final Double fValue;
         public final Long iValue;
@@ -186,43 +186,6 @@ class BasicCalculator {
         }
     }
 
-    static class Operand extends Token {
-        public Value value;
-
-        Operand(Value value) {
-            this.value = value;
-        }
-
-        Operand(String s, boolean isInteger) {
-            value = new Value(s, isInteger);
-        }
-
-        Operand add(Operand operand) {
-            return new Operand(value.add(operand.value));
-        }
-
-        Operand subtract(Operand operand) {
-            return new Operand(value.subtract(operand.value));
-        }
-
-        Operand multiply(Operand operand) {
-            return new Operand(value.multiply(operand.value));
-        }
-
-        Operand divide(Operand operand) {
-            return new Operand(value.divide(operand.value));
-        }
-
-        Operand negate() {
-            return new Operand(value.negate());
-        }
-
-        @Override
-        public String toString() {
-            return value.toString();
-        }
-    }
-
     enum RankOperator {
         PARENTHESES(0),
         PLUS(1),
@@ -275,9 +238,9 @@ class BasicCalculator {
             super(rankOperator, strRepresentation, evaluateMethod);
         }
 
-        Operand evaluate(Operand operand) {
+        Value evaluate(Value value) {
             try {
-                return (Operand) evaluateMethod.invoke(operand);
+                return (Value) evaluateMethod.invoke(value);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 e.printStackTrace();
                 throw new ReflectAPIUsingException("Bad method invoke. Method: " + evaluateMethod);
@@ -289,16 +252,15 @@ class BasicCalculator {
         BinaryOperator(RankOperator rankOperator, String strRepresentation, Method evaluateMethod) {
             super(rankOperator, strRepresentation, evaluateMethod);
         }
-        Operand evaluate(Operand operand1, Operand operand2) {
+        Value evaluate(Value value1, Value value2) {
             try {
-                return (Operand) evaluateMethod.invoke(operand1, operand2);
+                return (Value) evaluateMethod.invoke(value1, value2);
             } catch (IllegalAccessException | InvocationTargetException e) {
                 e.printStackTrace();
                 throw new ReflectAPIUsingException("Bad method invoke. Method: " + evaluateMethod);
             }
         }
     }
-
 
     Queue<Token> generateExpression(String s) {
         if (!Pattern.matches(regexExpression, s))
@@ -331,7 +293,7 @@ class BasicCalculator {
         Stack<Operator> operators = new Stack<>();
         while (!expression.isEmpty()) {
             var curElem = expression.remove();
-            if (curElem instanceof Operand) {
+            if (curElem instanceof Value) {
                 rpn.add(curElem);
             } else if (curElem instanceof OperatorParenthesis) {
                 if (((OperatorParenthesis) curElem).isOpen) {
@@ -368,36 +330,36 @@ class BasicCalculator {
     }
 
     Value calculateRPN(Queue<Token> rpn) {
-        Stack<Operand> operands = new Stack<>();
+        Stack<Value> values = new Stack<>();
         while (!rpn.isEmpty()) {
             var curElem = rpn.remove();
-            if (curElem instanceof Operand) {
-                operands.push((Operand) curElem);
+            if (curElem instanceof Value) {
+                values.push((Value) curElem);
             } else if (curElem instanceof BinaryOperator) {
-                Operand operand1, operand2;
+                Value value1, value2;
                 try {
-                    operand2 = operands.pop();
-                    operand1 = operands.pop();
+                    value2 = values.pop();
+                    value1 = values.pop();
                 } catch (EmptyStackException exception) {
                     throw new ExpressionFormatException("Invalid RPN");
                 }
-                operands.push(((BinaryOperator) curElem).evaluate(operand1, operand2));
+                values.push(((BinaryOperator) curElem).evaluate(value1, value2));
             } else if (curElem instanceof UnaryOperator) {
-                Operand operand;
+                Value value;
                 try {
-                    operand = operands.pop();
+                    value = values.pop();
                 } catch (EmptyStackException exception) {
                     throw new ExpressionFormatException("Invalid RPN");
                 }
-                operands.push(((UnaryOperator) curElem).evaluate(operand));
+                values.push(((UnaryOperator) curElem).evaluate(value));
             } else {
                 assert false;
             }
         }
-        if (operands.size() != 1)
+        if (values.size() != 1)
             throw new ExpressionFormatException("Invalid RPN");
 
-        return operands.peek().value;
+        return values.peek();
     }
 
     private Value calculateValue(String s) {
@@ -414,4 +376,3 @@ class BasicCalculator {
         return calculateValue(s).iValue;
     }
 }
-
